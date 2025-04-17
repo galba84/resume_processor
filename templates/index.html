@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Candidate List</title>
+</head>
+<body>
+    <h1>Candidate List</h1>
+    <ul>
+        {% for candidate in candidates %}
+            <li><a href="{{ url_for('candidate', id=candidate) }}">Candidate {{ candidate }}</a></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

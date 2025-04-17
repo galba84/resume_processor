@@ -1,0 +1,11 @@
+flask~=3.1.0
+transformers
+sentence-transformers~=4.1.0
+psycopg2-binary  # For PostgreSQL
+chromadb~=1.0.5
+faiss-cpu
+
+PyPDF2~=3.0.1
+llama-index-core~=0.12.31
+kagglehub~=0.3.11
+numpy~=2.2.4
