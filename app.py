@@ -3,8 +3,26 @@ import os
 import glob
 from transformers import pipeline
 from flask import Flask, render_template, url_for
+import chromadb
+import numpy as np
 
 app = Flask(__name__)
+
+
+class EmbeddingsStore:
+    def __init__(self):
+        self.client = chromadb.Client()
+        self.collection = self.client.create_collection(name="resume_embeddings")
+
+    def add_embeddings(self, embeddings, ids, documents):
+        self.collection.add(embeddings=embeddings, ids=ids, documents=documents)
+
+    def search(self, query_embedding, k=5):
+        results = self.collection.query(query_embeddings=[query_embedding], n_results=k)
+        return results['ids'][0]
+
+
+embeddings_store = EmbeddingsStore()
 
 
 def load_resumes(file_path):
@@ -44,21 +62,35 @@ def generate_summary(text):
     return ' '.join(summaries)
 
 
+def generate_embeddings(text):
+    embedder = pipeline("feature-extraction", model="distilbert-base-uncased")
+    embeddings = embedder(text)
+    # Ensure the embeddings are of the correct size
+    if len(embeddings[0]) != 512:
+        embeddings = np.resize(embeddings[0], (512,))
+    else:
+        embeddings = np.mean(embeddings[0], axis=0)
+    return embeddings
+
+
+
 @app.route('/')
 def index():
-    # Process all PDFs in the specified directory
-
-    directory = r'C:\Users\olsereda\.cache\kagglehub\datasets\snehaanbhawal\resume-dataset\versions\1\data\data\ACCOUNTANT'
+    directory = 'C:/Users/olsereda/.cache/kagglehub/datasets/snehaanbhawal/resume-dataset/versions/1/data/data/ACCOUNTANT'
     all_texts = process_all_pdfs(directory)
     candidates = [f'Candidate {i + 1}' for i in range(len(all_texts))]
+
+    # Add embeddings to the store
+    for i, text in enumerate(all_texts):
+        embedding = generate_embeddings(text)
+        embeddings_store.add_embeddings([embedding], [f'Candidate {i + 1}'], [text])
+
     return render_template('index.html', candidates=candidates)
 
 
 @app.route('/candidate/<id>')
 def candidate(id):
-    # Retrieve candidate details based on the ID
-
-    directory = r'C:\Users\olsereda\.cache\kagglehub\datasets\snehaanbhawal\resume-dataset\versions\1\data\data\ACCOUNTANT'
+    directory = 'C:/Users/olsereda/.cache/kagglehub/datasets/snehaanbhawal/resume-dataset/versions/1/data/data/ACCOUNTANT'
     all_texts = process_all_pdfs(directory)
     candidate_index = int(id.split(' ')[1]) - 1
     resume_text = all_texts[candidate_index]
@@ -70,7 +102,15 @@ def candidate(id):
         'resume': resume_text
     }
     summary = generate_summary(candidate_details['resume'])
-    return render_template('candidate_details.html', resume=candidate_details['resume'], summary=summary)
+    return render_template('candidate.html', resume=candidate_details['resume'], summary=summary)
+
+
+@app.route('/search', methods=['POST'])
+def search():
+    query_text = request.form['query']
+    query_embedding = generate_embeddings(query_text)
+    candidate_id = embeddings_store.search(query_embedding)
+    return redirect(url_for('candidate', id=candidate_id))
 
 
 if __name__ == '__main__':

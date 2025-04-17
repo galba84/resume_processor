@@ -68,7 +68,7 @@ def candidate(id):
         'resume': resume_text
     }
     summary = generate_summary(candidate_details['resume'])
-    return render_template('candidate_details.html', resume=candidate_details['resume'], summary=summary)
+    return render_template('candidate.html', resume=candidate_details['resume'], summary=summary)
 
 
 if __name__ == '__main__':
